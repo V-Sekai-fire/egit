@@ -57,7 +57,7 @@ git:reflog(Repo, "main")
 -export([blame/2, blame/3, describe/2, describe/3]).
 -export([cherry_pick/2, reflog/2, remove/2, move/3]).
 -export([diff/3, diff/4, merge/2, revert/2]).
--export([rebase_init/2, rebase_next/1, rebase_finish/1, rebase_abort/1]).
+-export([rebase_init/2, rebase_next/1, rebase_commit/1, rebase_finish/1, rebase_abort/1]).
 -export([stash_save/2, stash_list/1, stash_apply/2, stash_pop/2, stash_drop/2]).
 
 -on_load(on_load/0).
@@ -809,10 +809,24 @@ rebase_init(Repo, OntoRef) when is_reference(Repo) ->
 -doc """
 Continue to the next rebase operation.
 Returns 'done' when all operations are complete, or operation info.
+
+`git_rebase_next` only applies the operation to the index. Call
+`rebase_commit/1` after each one, or the rebase never advances.
 """.
 -spec rebase_next(repository()) -> done | tuple() | {error, term()}.
 rebase_next(Repo) when is_reference(Repo) ->
   rebase_next_nif(Repo).
+
+-doc """
+Commit the operation that `rebase_next/1` applied.
+
+Returns `{ok, Oid}`, or `nil` when the patch became empty against the new
+base and there was nothing to commit. The original author is preserved; only
+the committer is set from the repository default.
+""".
+-spec rebase_commit(repository()) -> {ok, binary()} | nil | {error, term()}.
+rebase_commit(Repo) when is_reference(Repo) ->
+  rebase_commit_nif(Repo).
 
 -doc """
 Finish the rebase operation.
@@ -973,6 +987,9 @@ rebase_init_nif(Repo, OntoRef) when is_reference(Repo), is_binary(OntoRef) ->
   ?NOT_LOADED_ERROR.
 
 rebase_next_nif(Repo) when is_reference(Repo) ->
+  ?NOT_LOADED_ERROR.
+
+rebase_commit_nif(Repo) when is_reference(Repo) ->
   ?NOT_LOADED_ERROR.
 
 rebase_finish_nif(Repo) when is_reference(Repo) ->
