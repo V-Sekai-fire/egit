@@ -44,12 +44,42 @@ ERL_NIF_TERM lg2_rebase_next(ErlNifEnv* env, git_repository* repo)
     return ATOM_DONE;
   }
 
+  // operation->id, not operation->exec. `exec` is only set for an EXEC
+  // operation and is NULL for PICK, which is the only kind libgit2 produces
+  // for a branch rebase -- so reading GIT_OID_SHA1_HEXSIZE bytes from it
+  // dereferenced null and took the whole VM down on the first commit.
   auto op_info = enif_make_tuple2(env,
     enif_make_int64(env, operation->type),
-    make_binary(env, std::string_view((const char*)operation->exec, GIT_OID_SHA1_HEXSIZE))
+    make_binary(env, oid_to_str(&operation->id))
   );
 
   return op_info;
+}
+
+ERL_NIF_TERM lg2_rebase_commit(ErlNifEnv* env, git_repository* repo)
+{
+  SmartPtr<git_rebase> rebase(git_rebase_free);
+
+  if (git_rebase_open(&rebase, repo, nullptr) != GIT_OK)
+    return make_git_error(env, "Failed to open rebase");
+
+  SmartPtr<git_signature> committer(git_signature_free);
+  if (git_signature_default(&committer, repo) != GIT_OK) [[unlikely]]
+    return make_git_error(env, "Error creating signature");
+
+  git_oid id;
+  // A null author keeps the original commit's author, which is what a rebase
+  // is supposed to preserve; only the committer changes.
+  auto rc = git_rebase_commit(&id, rebase, nullptr, committer, nullptr, nullptr);
+
+  // Nothing left to apply: the patch became empty against the new base.
+  if (rc == GIT_EAPPLIED)
+    return ATOM_NIL;
+
+  if (rc != GIT_OK)
+    return make_git_error(env, git_error_last() ? "" : "Failed to commit rebase operation");
+
+  return enif_make_tuple2(env, ATOM_OK, make_binary(env, oid_to_str(&id)));
 }
 
 ERL_NIF_TERM lg2_rebase_finish(ErlNifEnv* env, git_repository* repo)
