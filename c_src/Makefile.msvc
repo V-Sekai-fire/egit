@@ -1,0 +1,37 @@
+# MSVC build of the NIF, included by the Makefile on Windows. Same sources, other
+# flag spelling: cl.exe wants -Fe: for the output and -link before the libraries.
+PROJECT   ?= git
+CXX       ?= cl
+SO_OUTPUT ?= ../priv/$(PROJECT).dll
+SOURCES   := $(wildcard *.cpp)
+HEADERS   := $(wildcard *.hpp)
+
+ERL_CXXFLAGS ?= $(shell erl -noshell -noinput -eval "io:format(\"-I~ts/erts-~ts/include -I~ts\", [code:root_dir(), erlang:system_info(version), code:lib_dir(erl_interface, include)]), halt(0).")
+
+PKG_CFLAGS := $(shell pkg-config --cflags libgit2)
+PKG_LIBS   := $(shell pkg-config --libs libgit2)
+LIBPATHS    = $(patsubst -L%,-LIBPATH:%,$(filter -L%,$(PKG_LIBS)))
+# git2.lib is the import library of git2.dll and carries libgit2's own dependencies,
+# so the Libs.private entries pkg-config prints here are not linked again.
+LIBS        = git2.lib
+
+# MSVC 19.3x supplies <format> and <source_location>, so the vendored fmt is unused.
+# No -EHsc: these sources contain no throw, try or catch.
+CXXFLAGS  ?= -nologo -std:c++20 -Zc:preprocessor -O2 -DNDEBUG -DHAVE_FORMAT -DHAVE_SRCLOC -D_CRT_SECURE_NO_WARNINGS
+
+all: $(SO_OUTPUT)
+
+clean:
+	rm -f $(SO_OUTPUT) ../priv/$(PROJECT).lib ../priv/$(PROJECT).exp *.obj
+
+info:
+	@echo CXX=$(CXX)
+	@echo SO_OUTPUT=$(SO_OUTPUT)
+	@echo PKG_LIBS=$(PKG_LIBS)
+
+$(SO_OUTPUT): $(SOURCES) $(HEADERS)
+ifeq ($(strip $(PKG_LIBS)),)
+	$(error libgit2 not found by pkg-config: build inside the pixi environment)
+endif
+	@mkdir -p ../priv
+	$(CXX) $(CXXFLAGS) $(ERL_CXXFLAGS) $(PKG_CFLAGS) -LD $(SOURCES) -Fe:$(SO_OUTPUT) -Fo:./ -link $(LIBPATHS) $(LIBS)
