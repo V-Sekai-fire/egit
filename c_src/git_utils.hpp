@@ -5,6 +5,7 @@
 #include <memory>
 #include <type_traits>
 #include <erl_nif.h>
+#include "git_compat.hpp"
 #include "git_atoms.hpp"
 
 #ifdef HAVE_SRCLOC
@@ -205,9 +206,17 @@ inline std::string atom_to_str(ErlNifEnv* env, ERL_NIF_TERM atom) {
 inline ERL_NIF_TERM src_info(ErlNifEnv* env, const std::source_location& loc)
 {
   char buf[128];
-  snprintf(buf, sizeof(buf), "%s:%d", basename(loc.file_name()), loc.line());
+  snprintf(buf, sizeof(buf), "%s:%d", egit_basename(loc.file_name()), loc.line());
   return make_binary(env, buf);
 }
+#endif
+
+// enif_* are function-like macros on Windows, and a preprocessor directive inside a
+// macro argument list is undefined behavior, so the optional argument travels as a macro.
+#ifdef HAVE_SRCLOC
+#  define EGIT_SRCLOC_ARG , loc
+#else
+#  define EGIT_SRCLOC_ARG
 #endif
 
 inline ERL_NIF_TERM fmt_git_error(ErlNifEnv* env, std::string const& pfx
@@ -227,7 +236,7 @@ inline ERL_NIF_TERM fmt_git_error(ErlNifEnv* env, std::string const& pfx
     delim = ": ";
 
 #ifdef HAVE_SRCLOC
-  snprintf(buf, sizeof(buf), "%s%s%s [%s:%d]", pfx.c_str(), delim, err, basename(loc.file_name()), loc.line());
+  snprintf(buf, sizeof(buf), "%s%s%s [%s:%d]", pfx.c_str(), delim, err, egit_basename(loc.file_name()), loc.line());
 #else
   snprintf(buf, sizeof(buf), "%s%s%s", pfx.c_str(), delim, err);
 #endif
@@ -240,11 +249,7 @@ inline ERL_NIF_TERM raise_git_exception(ErlNifEnv* env, std::string const& pfx
 #endif
 )
 {
-  return enif_raise_exception(env, fmt_git_error(env, pfx
-#ifdef HAVE_SRCLOC
-  , loc
-#endif
-  ));
+  return enif_raise_exception(env, fmt_git_error(env, pfx EGIT_SRCLOC_ARG));
 }
 
 inline ERL_NIF_TERM raise_badarg_exception(ErlNifEnv* env, ERL_NIF_TERM err
@@ -266,11 +271,7 @@ inline ERL_NIF_TERM make_git_error(ErlNifEnv* env, std::string const& pfx
 #endif
 )
 {
-  return enif_make_tuple2(env, ATOM_ERROR, fmt_git_error(env, pfx
-#ifdef HAVE_SRCLOC
-  , loc
-#endif
-  ));
+  return enif_make_tuple2(env, ATOM_ERROR, fmt_git_error(env, pfx EGIT_SRCLOC_ARG));
 }
 
 inline ERL_NIF_TERM make_error(ErlNifEnv* env, std::string_view const& err)
