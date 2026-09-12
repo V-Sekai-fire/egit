@@ -1,3 +1,7 @@
+ifeq ($(OS),Windows_NT)
+include Makefile.msvc
+else
+
 CURDIR		:= $(shell pwd)
 BASEDIR		:= $(abspath $(dir $(CURDIR)))
 PROJECT		?= git
@@ -89,3 +93,5 @@ $(SO_OUTPUT): $(OBJECTS)
 		git submodule update --init --recursive; \
 	fi
 	$(COMPILE_CPP) $(OUTPUT_OPTION) $<
+
+endif
