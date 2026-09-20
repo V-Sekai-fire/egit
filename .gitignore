@@ -5,3 +5,9 @@
 /priv/*.so
 /_build
 /doc
+# pixi environments
+.pixi/*
+!.pixi/config.toml
+/priv/*.dll
+/priv/*.dylib
+/build

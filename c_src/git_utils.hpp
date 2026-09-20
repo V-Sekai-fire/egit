@@ -9,6 +9,17 @@
 
 #ifdef HAVE_SRCLOC
 #include <source_location>
+
+// POSIX basename() is not in the UCRT, so a source_location's file_name() is
+// trimmed here rather than by libgen.h. Windows paths carry either separator.
+inline const char* egit_basename(const char* path)
+{
+  const char* out = path;
+  for (const char* p = path; *p; ++p)
+    if (*p == '/' || *p == '\\')
+      out = p + 1;
+  return out;
+}
 #endif
 
 #if ERL_NIF_MAJOR_VERSION > 2 || (ERL_NIF_MAJOR_VERSION == 2 && ERL_NIF_MINOR_VERSION >= 17)
@@ -205,7 +216,7 @@ inline std::string atom_to_str(ErlNifEnv* env, ERL_NIF_TERM atom) {
 inline ERL_NIF_TERM src_info(ErlNifEnv* env, const std::source_location& loc)
 {
   char buf[128];
-  snprintf(buf, sizeof(buf), "%s:%d", basename(loc.file_name()), loc.line());
+  snprintf(buf, sizeof(buf), "%s:%d", egit_basename(loc.file_name()), loc.line());
   return make_binary(env, buf);
 }
 #endif
@@ -227,7 +238,7 @@ inline ERL_NIF_TERM fmt_git_error(ErlNifEnv* env, std::string const& pfx
     delim = ": ";
 
 #ifdef HAVE_SRCLOC
-  snprintf(buf, sizeof(buf), "%s%s%s [%s:%d]", pfx.c_str(), delim, err, basename(loc.file_name()), loc.line());
+  snprintf(buf, sizeof(buf), "%s%s%s [%s:%d]", pfx.c_str(), delim, err, egit_basename(loc.file_name()), loc.line());
 #else
   snprintf(buf, sizeof(buf), "%s%s%s", pfx.c_str(), delim, err);
 #endif

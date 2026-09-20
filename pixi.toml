@@ -1,0 +1,17 @@
+[workspace]
+name = "egit"
+channels = ["conda-forge"]
+platforms = ["win-64", "linux-64", "osx-64", "osx-arm64"]
+version = "0.2.1"
+
+# libgit2 is the only thing the NIF links that the desk does not already have.
+# Erlang and the compiler come from the desk: llvm-mingw on Windows, the system
+# clang or gcc elsewhere.
+[dependencies]
+libgit2 = ">=1.9,<2"
+cmake = ">=3.20"
+ninja = ">=1.11"
+
+[tasks]
+configure = "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$CONDA_PREFIX/Library"
+build = { cmd = "cmake --build build", depends-on = ["configure"] }

@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Proves the NIF builds on all three platforms and loads into the emulator.
+# Building is not the check: the Makefile this replaces compiled on Linux for
+# years while the Windows build had four separate faults, and a compile says
+# nothing about whether the emulator can load what came out. So each job opens
+# a repository through libgit2 and reads something back.
+
+name: build
+
+on: [push, pull_request]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+
+      - uses: prefix-dev/setup-pixi@v0
+        with:
+          pixi-version: v0.42.1
+
+      - name: llvm-mingw
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          curl -sSL -o mingw.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-x86_64.zip
+          7z x -y mingw.zip > /dev/null
+          echo "$PWD/llvm-mingw-20250910-ucrt-x86_64/bin" >> "$GITHUB_PATH"
+
+      - name: configure and build
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            export CC=clang CXX=clang++
+            PREFIX_SUFFIX=/Library
+          fi
+          pixi run bash -c "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH=\$CONDA_PREFIX${PREFIX_SUFFIX}"
+          pixi run cmake --build build
+
+      # The check. A build that produced an unloadable NIF passes every step
+      # above it, so the artefact is loaded and asked a real question.
+      - name: load the NIF and read this repository
+        shell: bash
+        run: |
+          mkdir -p ebin
+          erlc -o ebin src/*.erl
+          cat > load_test.erl <<'ERL'
+          -module(load_test).
+          -export([main/0]).
+          main() ->
+            R = git:open("."),
+            [_|_] = git:list_remotes(R),
+            <<_:40/binary>> = git:rev_parse(R, <<"HEAD">>),
+            io:format("ok~n"),
+            halt(0).
+          ERL
+          erlc -o ebin load_test.erl
+          pixi run bash -c 'erl -noshell -pa ebin -s load_test main'
