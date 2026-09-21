@@ -67,7 +67,31 @@ target_include_directories(git PRIVATE
   "${ERTS_INCLUDE}" "${EI_INCLUDE}" "${GIT2_INCLUDE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/c_src")
 
-target_compile_definitions(git PRIVATE HAVE_FORMAT HAVE_SRCLOC)
+# Detected, not assumed: the compiler may predate <format>.
+include(CheckCXXSourceCompiles)
+set(CMAKE_REQUIRED_FLAGS "-std=c++20")
+check_cxx_source_compiles("#include <format>
+int main(){return (int)std::format(\"{}\",1).size();}" HAVE_STD_FORMAT)
+check_cxx_source_compiles("#include <source_location>
+int main(){return (int)std::source_location::current().line();}" HAVE_STD_SRCLOC)
+unset(CMAKE_REQUIRED_FLAGS)
+
+if(HAVE_STD_FORMAT)
+  target_compile_definitions(git PRIVATE HAVE_FORMAT)
+else()
+  if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/c_src/fmt/include")
+    execute_process(COMMAND git submodule update --init --recursive
+                    WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" RESULT_VARIABLE rc)
+    if(NOT rc EQUAL 0 OR NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/c_src/fmt/include")
+      message(FATAL_ERROR "no <format> and no c_src/fmt; use a C++20 compiler or fetch the submodule")
+    endif()
+  endif()
+  target_compile_definitions(git PRIVATE FMT_HEADER_ONLY)
+  target_include_directories(git PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/c_src/fmt/include")
+endif()
+if(HAVE_STD_SRCLOC)
+  target_compile_definitions(git PRIVATE HAVE_SRCLOC)
+endif()
 
 # No -lei: nothing references ei_*, and its MSVC import library breaks lld.
 target_link_libraries(git PRIVATE "${GIT2_LIBRARY}")
