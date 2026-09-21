@@ -60,10 +60,14 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             export CC=clang CXX=clang++
-            SUFFIX=/Library
           fi
-          export SUFFIX
-          pixi run bash -c 'CMAKE_PREFIX_PATH=$CONDA_PREFIX$SUFFIX cmake -P build.cmake'
+          # No CMAKE_PREFIX_PATH. It existed to find the packaged libgit2, and
+          # libgit2 is vendored now; leaving it pointed at the pixi environment
+          # made libgit2's own configure link that environment's libiconv and
+          # libc++ as @rpath entries with no rpath to resolve them, so the NIF
+          # built and then would not load. pixi supplies cmake and ninja here,
+          # not libraries.
+          pixi run cmake -P build.cmake
 
       # The check. A build that produced an unloadable NIF passes every step
       # above it, so the artefact is loaded and asked a real question.
@@ -91,6 +95,13 @@ jobs:
             ls -l priv/ || true
             (otool -L priv/git.so 2>/dev/null || ldd priv/git.so 2>/dev/null) || true
             echo "--- load_nif says"
-            pixi run bash -c 'erl -noshell -eval "io:format(\"~p~n\",[erlang:load_nif(\"priv/git\",[])]), halt(0)."' || true
+            # load_nif refuses to run through apply/3, which -eval is, so the
+            # call has to sit in a module of its own.
+            cat > nifreason.erl <<'ERL'
+            -module(nifreason).
+            -export([main/0]).
+            main() -> io:format("~p~n", [erlang:load_nif("priv/git", [])]), halt(0).
+ERL
+            sed -i.bak 's/^            //' nifreason.erl && erlc -o ebin nifreason.erl               && pixi run bash -c 'erl -noshell -pa ebin -s nifreason main' || true
             exit 1
           fi
