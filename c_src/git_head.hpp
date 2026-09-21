@@ -1,14 +1,4 @@
-//-----------------------------------------------------------------------------
-// Where HEAD points: a branch, or a commit with no branch on it.
-//-----------------------------------------------------------------------------
 // SPDX-License-Identifier: Apache-2.0
-//
-// rev_parse answers "what commit is HEAD" and list_branches answers "what
-// branches exist", and neither answers "is this checkout on a branch". A tool
-// that has to tell a detached checkout from one sitting on a feature branch -
-// which is the difference between a sync that advances and a sync that starts
-// a rebase - cannot get there from the two existing calls.
-//-----------------------------------------------------------------------------
 #pragma once
 
 #include <git2/repository.h>
@@ -19,8 +9,6 @@ ERL_NIF_TERM lg2_head(ErlNifEnv* env, git_repository* repo)
   git_reference* raw = nullptr;
   int rc = git_repository_head(&raw, repo);
 
-  // An unborn HEAD names a branch that has no commit yet, which is a valid
-  // state rather than an error: a fresh `git init` is in it.
   if (rc == GIT_EUNBORNBRANCH) {
     git_reference* sym = nullptr;
     if (git_reference_lookup(&sym, repo, "HEAD") != GIT_OK) [[unlikely]]
