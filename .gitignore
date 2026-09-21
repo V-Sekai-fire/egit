@@ -11,3 +11,9 @@
 /priv/*.dll
 /priv/*.dylib
 /build
+/cache
+/_build
+/deps
+/verify
+/pc.log
+/*.log
