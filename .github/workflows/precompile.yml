@@ -102,7 +102,8 @@ jobs:
             R = git:open("."),
             [_|_] = git:list_remotes(R),
             {ok, <<_:40/binary>>} = git:rev_parse(R, <<"HEAD">>),
-            {branch, _} = git:head(R),
+            % a tag checkout is detached, a branch checkout is not; both answer
+            case git:head(R) of {branch, _} -> ok; {detached, _} -> ok end,
             io:format("loaded~n"),
             halt(0).
           ERL
