@@ -94,14 +94,5 @@ jobs:
             echo "--- linkage"
             ls -l priv/ || true
             (otool -L priv/git.so 2>/dev/null || ldd priv/git.so 2>/dev/null) || true
-            echo "--- load_nif says"
-            # load_nif refuses to run through apply/3, which -eval is, so the
-            # call has to sit in a module of its own.
-            cat > nifreason.erl <<'ERL'
-            -module(nifreason).
-            -export([main/0]).
-            main() -> io:format("~p~n", [erlang:load_nif("priv/git", [])]), halt(0).
-ERL
-            sed -i.bak 's/^            //' nifreason.erl && erlc -o ebin nifreason.erl               && pixi run bash -c 'erl -noshell -pa ebin -s nifreason main' || true
             exit 1
           fi
