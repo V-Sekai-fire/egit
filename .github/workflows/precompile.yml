@@ -67,11 +67,22 @@ jobs:
       # An archive that unpacks to a NIF the emulator cannot load is still an
       # archive, and the release would carry it. So it is unpacked and loaded
       # before it is uploaded.
+      # A build that succeeds says the compiler ran. It does not say the
+      # emulator can load what came out, and the two have already come apart
+      # here: the first Windows build produced a git.dll that linked cleanly
+      # and then failed to load, because libc++ and libunwind were not beside
+      # it. Uploading on a green build would have published that. So the
+      # artefact is loaded before it is uploaded.
+      #
+      # Only the native archive can be loaded. macOS builds both darwin
+      # targets and a cross-built artefact does not load on the host that
+      # produced it, so the rest are unpacked and checked for the library
+      # instead, and the run prints what it unpacked beside what it loaded.
+      # A skip that prints nothing reads exactly like a pass.
       - name: load what was archived
         shell: bash
         run: |
-          mkdir -p verify/priv ebin
-          tar -xzf cache/*.tar.gz -C verify/priv
+          mkdir -p ebin
           erlc -o ebin src/*.erl
           cat > load_test.erl <<'ERL'
           -module(load_test).
@@ -80,12 +91,33 @@ jobs:
             R = git:open("."),
             [_|_] = git:list_remotes(R),
             {ok, <<_:40/binary>>} = git:rev_parse(R, <<"HEAD">>),
-            io:format("ok~n"),
+            {branch, _} = git:head(R),
+            io:format("loaded~n"),
             halt(0).
           ERL
           erlc -o ebin load_test.erl
-          rm -rf priv && mv verify/priv priv
-          pixi run bash -c 'erl -noshell -pa ebin -s load_test main'
+
+          case "$(uname -m)" in
+            arm64|aarch64) host=aarch64 ;;
+            *)             host=x86_64 ;;
+          esac
+          loaded=0; unpacked=0
+          for a in cache/*.tar.gz; do
+            rm -rf priv && mkdir -p priv
+            tar -xzf "$a" -C priv
+            ls priv/git.* >/dev/null || { echo "FAIL $a carries no git library"; exit 1; }
+            unpacked=$((unpacked+1))
+            case "$a" in
+              *"$host"*)
+                echo "== $a"
+                pixi run bash -c 'erl -noshell -pa ebin -s load_test main'
+                loaded=$((loaded+1)) ;;
+              *)
+                echo "-- $a unpacked, NOT loaded: cross-built for another architecture" ;;
+            esac
+          done
+          echo "$unpacked archive(s) unpacked, $loaded loaded."
+          [ "$loaded" -ge 1 ] || { echo "FAIL: nothing was loaded"; exit 1; }
 
       - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')

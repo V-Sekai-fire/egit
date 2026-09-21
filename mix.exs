@@ -57,7 +57,23 @@ defmodule Egit.MixProject do
       # filename has to be said out loud.
       make_precompiler_filename: "git",
       make_precompiler_priv_paths: ["git.*"],
-      make_precompiler_nif_versions: [versions: ["2.16", "2.17", "2.18"]]
+      make_precompiler_nif_versions: [versions: ["2.16", "2.17", "2.18"]],
+
+      # cc_precompiler picks the compiler for a target itself and ignores CC
+      # and CXX in the environment, so on Windows it looked for an MSVC
+      # toolchain and stopped at "Compiler not found for
+      # x86_64-windows-msvc". The Windows build here is llvm-mingw, named
+      # here rather than exported.
+      cc_precompiler: [
+        compilers: %{
+          {:win32, :nt} => %{
+            :include_default_ones => false,
+            "x86_64-windows-msvc" => {"clang", "clang++"}
+          },
+          {:unix, :darwin} => %{:include_default_ones => true},
+          {:unix, :linux} => %{:include_default_ones => true}
+        }
+      ]
     ]
   end
 
