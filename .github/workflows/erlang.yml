@@ -20,7 +20,7 @@ jobs:
       image: ${{ matrix.otp }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Install latest g++
       run: |
         apt-get update -y
