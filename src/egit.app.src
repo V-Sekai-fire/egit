@@ -1,6 +1,6 @@
 {application,egit,
              [{description,"Native git Erlang interface library"},
-              {vsn,"0.2.1-vsekai.4"},
+              {vsn,"0.2.1-vsekai.5"},
               {registered,[]},
               {modules,[git]},
               {env,[]},
