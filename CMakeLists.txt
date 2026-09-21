@@ -96,7 +96,10 @@ if(HAVE_STD_FORMAT)
   target_compile_definitions(git PRIVATE HAVE_FORMAT)
 else()
   if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/c_src/fmt/include")
-    execute_process(COMMAND git submodule update --init --recursive
+    # -c safe.directory, because a container runs as a user that does not own
+    # the checkout and git then refuses: "detected dubious ownership". Scoped
+    # to this call rather than written into the global config.
+    execute_process(COMMAND git -c safe.directory=* submodule update --init --recursive
                     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}" RESULT_VARIABLE rc)
     if(NOT rc EQUAL 0 OR NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/c_src/fmt/include")
       message(FATAL_ERROR "no <format> and no c_src/fmt; use a C++20 compiler or fetch the submodule")
