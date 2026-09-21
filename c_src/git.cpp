@@ -781,6 +781,17 @@ static ERL_NIF_TERM rebase_next_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   return lg2_rebase_next(env, repo->get());
 }
 
+static ERL_NIF_TERM rebase_commit_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+  assert(argc == 1);
+
+  GitRepoPtr* repo;
+  if (!enif_get_resource(env, argv[0], GIT_REPO_RESOURCE, (void**)&repo)) [[unlikely]]
+    return enif_make_badarg(env);
+
+  return lg2_rebase_commit(env, repo->get());
+}
+
 static ERL_NIF_TERM rebase_finish_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
   assert(argc == 1);
@@ -949,6 +960,7 @@ static ErlNifFunc git_funcs[] =
   {"revert_nif",        2, revert_nif,        ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"rebase_init_nif",   2, rebase_init_nif,   ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"rebase_next_nif",   1, rebase_next_nif,   ERL_NIF_DIRTY_JOB_IO_BOUND},
+  {"rebase_commit_nif", 1, rebase_commit_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"rebase_finish_nif", 1, rebase_finish_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"rebase_abort_nif",  1, rebase_abort_nif,  ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"stash_save_nif",    2, stash_save_nif,    ERL_NIF_DIRTY_JOB_IO_BOUND},

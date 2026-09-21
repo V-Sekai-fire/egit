@@ -17,6 +17,8 @@
 #pragma once
 
 #include <git2/common.h>
+#include <git2/merge.h>
+#include <vector>
 
 static bool has_changes(git_repository* repo, git_index* index)
 {
@@ -77,7 +79,12 @@ ERL_NIF_TERM lg2_commit(ErlNifEnv* env, git_repository* repo, std::string const&
   if (git_tree_lookup(&tree, repo, &tree_oid) != GIT_OK) [[unlikely]]
     return make_git_error(env, "Error looking up tree");
 
-  if (!has_changes(repo, index))
+  // A merge that introduces no content change still needs a commit: the point
+  // of it is the second parent. Returning early there would leave MERGE_HEAD
+  // behind and the branch would look unmerged forever.
+  bool merging = git_repository_state(repo) == GIT_REPOSITORY_STATE_MERGE;
+
+  if (!merging && !has_changes(repo, index))
     return enif_make_tuple2(env, ATOM_OK, ATOM_NIL);
 
   SmartPtr<git_signature> signature(git_signature_free);
@@ -86,12 +93,61 @@ ERL_NIF_TERM lg2_commit(ErlNifEnv* env, git_repository* repo, std::string const&
 
   git_oid commit_oid;
 
-  const git_commit* parents[] = { parent_commit.get() };
+  // Parents: HEAD, then every MERGE_HEAD a preceding merge wrote. Without the
+  // second group a commit concluding a merge is recorded with one parent, so
+  // git does not consider the branch merged and a re-run merges it again. The
+  // content is correct either way, which is why this is invisible unless you
+  // count parents.
+  std::vector<const git_commit*> parents;
+  std::vector<git_commit*> owned;
 
-  if (git_commit_create(
+  if (parent)
+    parents.push_back(parent_commit.get());
+
+  struct MergeHeads {
+    git_repository*            repo;
+    std::vector<const git_commit*>* parents;
+    std::vector<git_commit*>*  owned;
+    int                        error = 0;
+  } heads{repo, &parents, &owned};
+
+  auto collect = [](const git_oid* oid, void* payload) -> int {
+    auto* h = static_cast<MergeHeads*>(payload);
+    git_commit* mc = nullptr;
+    if (git_commit_lookup(&mc, h->repo, oid) != GIT_OK) {
+      h->error = -1;
+      return -1;
+    }
+    h->parents->push_back(mc);
+    h->owned->push_back(mc);
+    return 0;
+  };
+
+  auto mh = git_repository_mergehead_foreach(repo, collect, &heads);
+
+  auto free_owned = [&owned]() { for (auto* c : owned) git_commit_free(c); };
+
+  if (mh != GIT_OK && mh != GIT_ENOTFOUND) [[unlikely]] {
+    free_owned();
+    return make_git_error(env, "Could not read MERGE_HEAD");
+  }
+  if (heads.error != 0) [[unlikely]] {
+    free_owned();
+    return make_git_error(env, "Could not lookup a MERGE_HEAD commit");
+  }
+
+  auto rc = git_commit_create(
         &commit_oid, repo, "HEAD", signature, signature, nullptr,
-        comment.c_str(), tree, parent ? 1 : 0, parents) != GIT_OK) [[unlikely]]
+        comment.c_str(), tree, parents.size(), parents.data());
+
+  free_owned();
+
+  if (rc != GIT_OK) [[unlikely]]
     return make_git_error(env, git_error_last() ? "" : "Error creating commit");
+
+  // Clear MERGE_HEAD once recorded, so the next commit is an ordinary one.
+  if (merging)
+    git_repository_state_cleanup(repo);
 
   return enif_make_tuple2(env, ATOM_OK, make_binary(env, oid_to_str(commit_oid)));
 }
