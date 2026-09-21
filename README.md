@@ -1,8 +1,33 @@
 ![Banner](https://github.com/saleyn/egit/blob/main/assets/egit-banner.png?raw=true)
 
-[![build](https://github.com/saleyn/egit/actions/workflows/erlang.yml/badge.svg)](https://github.com/saleyn/egit/actions/workflows/erlang.yml)
-[![Hex.pm](https://img.shields.io/hexpm/v/egit.svg)](https://hex.pm/packages/egit)
-[![Hex.pm](https://img.shields.io/hexpm/dt/egit.svg)](https://hex.pm/packages/egit)
+[![build](https://github.com/V-Sekai-fire/egit/actions/workflows/build.yml/badge.svg)](https://github.com/V-Sekai-fire/egit/actions/workflows/build.yml)
+[![Erlang CI](https://github.com/V-Sekai-fire/egit/actions/workflows/erlang.yml/badge.svg)](https://github.com/V-Sekai-fire/egit/actions/workflows/erlang.yml)
+
+> **This is a fork of [saleyn/egit](https://github.com/saleyn/egit).** The
+> badges above are this fork's CI, not upstream's. Versions are
+> `0.2.1-vsekai.N.dev` so they cannot be confused with upstream's `0.2.1` in a
+> tag, a release title, or an artefact filename.
+>
+> What it adds:
+>
+> - **Builds on Windows**, through CMake and llvm-mingw, and through MSVC.
+> - **`head/1`** - whether a checkout is on a branch or detached. `rev_parse`
+>   says what commit HEAD is and `list_branches` says what branches exist;
+>   neither answered this.
+> - **Merge parents are recorded** by `commit/2`, which previously wrote a
+>   single-parent commit even with MERGE_HEAD present.
+> - **A rebase segfault fixed**: `rebase_next/1` read from `operation->exec`,
+>   which libgit2 leaves NULL for the PICK operations a branch rebase produces.
+>   In a NIF that takes the emulator down rather than returning an error.
+> - **libgit2 is preferred from a system prefix and vendored static
+>   otherwise**, so a downloaded artefact needs nothing from the machine that
+>   built it. `priv/egit.sigs` records which was used.
+> - **Precompiled artefacts** for linux-x86_64, windows-x86_64 and both macOS
+>   architectures, each loaded by a host that can run it before it is
+>   published.
+>
+> Upstream is where general egit development happens. Changes here that are
+> not Windows- or packaging-specific belong there.
 
 `egit` project is an Erlang NIF wrapper to `libgit2` library. It allows to
 execute commands to access and manage a `git` repository without depending
@@ -11,7 +36,8 @@ text output produced by the `git` executable.
 
 Though it appears to be stable, the project is currently in the beta stage.
 
-Source code:   https://github.com/saleyn/egit
+Source code:   https://github.com/V-Sekai-fire/egit (fork)
+Upstream:      https://github.com/saleyn/egit
 
 Documentation: https://hexdocs.pm/egit
 
