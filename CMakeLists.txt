@@ -91,14 +91,27 @@ if(APPLE)
   target_link_options(git PRIVATE -flat_namespace -undefined suppress)
 endif()
 
+# Under Mix the library belongs in the built application's priv, not the source
+# tree's. elixir_make archives what is in $MIX_APP_PATH/priv, and on Unix Mix
+# symlinks that to ./priv so writing to either works, while on Windows it is a
+# real and separate directory - so a build that only wrote ./priv produced an
+# archive of nothing, and reported a checksum for it.
+if(DEFINED ENV{MIX_APP_PATH})
+  set(EGIT_PRIV "$ENV{MIX_APP_PATH}/priv")
+else()
+  set(EGIT_PRIV "${CMAKE_CURRENT_SOURCE_DIR}/priv")
+endif()
+file(MAKE_DIRECTORY "${EGIT_PRIV}")
+message(STATUS "priv: ${EGIT_PRIV}")
+
 # Erlang loads priv/git.<ext>, so no lib prefix and no version suffix.
 set_target_properties(git PROPERTIES
   PREFIX ""
-  LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/priv"
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/priv")
+  LIBRARY_OUTPUT_DIRECTORY "${EGIT_PRIV}"
+  RUNTIME_OUTPUT_DIRECTORY "${EGIT_PRIV}")
 
 foreach(cfg IN ITEMS DEBUG RELEASE RELWITHDEBINFO MINSIZEREL)
   set_target_properties(git PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY_${cfg} "${CMAKE_CURRENT_SOURCE_DIR}/priv"
-    RUNTIME_OUTPUT_DIRECTORY_${cfg} "${CMAKE_CURRENT_SOURCE_DIR}/priv")
+    LIBRARY_OUTPUT_DIRECTORY_${cfg} "${EGIT_PRIV}"
+    RUNTIME_OUTPUT_DIRECTORY_${cfg} "${EGIT_PRIV}")
 endforeach()
