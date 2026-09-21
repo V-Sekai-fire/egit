@@ -3,7 +3,7 @@
 defmodule Egit.MixProject do
   use Mix.Project
 
-  @version "0.2.1-vsekai.2.dev"
+  @version "0.2.1-vsekai.3.dev"
   @source_url "https://github.com/V-Sekai-fire/egit"
 
   def project do
