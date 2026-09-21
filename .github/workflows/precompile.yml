@@ -67,14 +67,18 @@ jobs:
       # An archive that unpacks to a NIF the emulator cannot load is still an
       # archive, and the release would carry it. So it is unpacked and loaded
       # before it is uploaded.
-      # An archive that unpacks to a NIF the emulator cannot load is still an
-      # archive, and the release would carry it. So each one is unpacked and
-      # the native one is loaded before anything is uploaded.
+      # A build that succeeds says the compiler ran. It does not say the
+      # emulator can load what came out, and the two have already come apart
+      # here: the first Windows build produced a git.dll that linked cleanly
+      # and then failed to load, because libc++ and libunwind were not beside
+      # it. Uploading on a green build would have published that. So the
+      # artefact is loaded before it is uploaded.
       #
-      # Only the native one can be: macOS builds both darwin targets and a
-      # cross-built artefact will not load on the host that produced it. The
-      # others are unpacked and checked for the library, and the run says so
-      # rather than leaving a silent skip that reads like a pass.
+      # Only the native archive can be loaded. macOS builds both darwin
+      # targets and a cross-built artefact does not load on the host that
+      # produced it, so the rest are unpacked and checked for the library
+      # instead, and the run prints what it unpacked beside what it loaded.
+      # A skip that prints nothing reads exactly like a pass.
       - name: load what was archived
         shell: bash
         run: |
