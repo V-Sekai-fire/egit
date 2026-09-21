@@ -139,3 +139,80 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: cache/*.tar.gz
+
+  # Does a desk with no toolchain get a working NIF from the release? Every job
+  # above builds one, which says nothing about whether a consumer can avoid
+  # building. This installs from the release that was just published, on a
+  # runner with no cmake, no llvm-mingw and no pixi, and calls into it.
+  consume:
+    needs: precompile
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        otp: ['26', '28', '27']
+        os: [ubuntu-latest, macos-15-intel, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: ${{ matrix.otp }}
+          elixir-version: '1.17'
+
+      - name: no toolchain is present
+        shell: bash
+        run: |
+          for t in cmake ninja clang++ g++; do
+            command -v $t >/dev/null && { echo "FAIL: $t is on PATH; this job proves nothing"; exit 1; }
+          done
+          echo "no cmake, ninja, clang++ or g++ on PATH"
+
+      - name: install from the release and call into it
+        shell: bash
+        run: |
+          mkdir -p consume && cd consume
+          git init -q . && git commit -q --allow-empty -m probe             --author="t <t@t>" 2>/dev/null || true
+          cat > use.exs <<'EX'
+          Mix.install([{:egit, git: "https://github.com/V-Sekai-fire/egit.git",
+                        tag: System.get_env("TAG")}])
+          r = :git.open(".")
+          case :git.head(r) do
+            {:branch, _} -> :ok
+            {:branch, _, :unborn} -> :ok
+            {:detached, _} -> :ok
+            other -> raise "head/1 gave #{inspect(other)}"
+          end
+          IO.puts("installed without compiling, and the NIF answers")
+          EX
+          TAG="${GITHUB_REF_NAME}" elixir use.exs
+
+  # The control. The job above passes if the artefact downloads, and it would
+  # also pass if elixir_make quietly compiled one instead -- which is the only
+  # way it can fail to prove anything. So the same install is run with the
+  # build forced, on the same toolchain-free runner, and is required to FAIL.
+  consume-control:
+    needs: precompile
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+          elixir-version: '1.17'
+
+      - name: a forced build must fail where no toolchain exists
+        shell: bash
+        run: |
+          mkdir -p control && cd control
+          cat > forced.exs <<'EX'
+          Application.put_env(:elixir_make, :force_build, egit: true)
+          Mix.install([{:egit, git: "https://github.com/V-Sekai-fire/egit.git",
+                        tag: System.get_env("TAG")}])
+          EX
+          if TAG="${GITHUB_REF_NAME}" elixir forced.exs 2>err.txt; then
+            echo "CONTROL DID NOT FIRE: a forced build succeeded with no toolchain,"
+            echo "so the consume job cannot distinguish a download from a build."
+            exit 1
+          fi
+          grep -qiE 'cmake|make|not found' err.txt             || { echo "failed for an unexpected reason:"; cat err.txt; exit 1; }
+          echo "ok: forced build fails without a toolchain, so consume proves a download"
