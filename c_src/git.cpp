@@ -28,6 +28,7 @@ namespace std { using namespace fmt; }
 #include "git_cat_file.hpp"
 #include "git_checkout.hpp"
 #include "git_commit.hpp"
+#include "git_head.hpp"
 #include "git_rev_parse.hpp"
 #include "git_rev_list.hpp"
 #include "git_config.hpp"
@@ -406,6 +407,17 @@ static ERL_NIF_TERM push_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
   return git_remote_push(remote, &refspecs, &options) == GIT_OK
        ? ATOM_OK : make_git_error(env, "Error pushing to " + sremote);
+}
+
+static ERL_NIF_TERM head_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+  assert(argc == 1);
+
+  GitRepoPtr* repo;
+  if (!enif_get_resource(env, argv[0], GIT_REPO_RESOURCE, (void**)&repo)) [[unlikely]]
+    return enif_make_badarg(env);
+
+  return lg2_head(env, repo->get());
 }
 
 static ERL_NIF_TERM rev_parse_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
@@ -912,6 +924,7 @@ static ErlNifFunc git_funcs[] =
   {"commit_nif",        2, commit_nif,        ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"commit_lookup_nif", 3, commit_lookup_nif, 0},
   {"cat_file_nif",      3, cat_file_nif,      ERL_NIF_DIRTY_JOB_IO_BOUND},
+  {"head_nif",          1, head_nif,          ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"rev_parse_nif",     3, rev_parse_nif,     ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"rev_list_nif",      3, rev_list_nif,      ERL_NIF_DIRTY_JOB_IO_BOUND},
   {"config_get_nif",    2, config_nif},

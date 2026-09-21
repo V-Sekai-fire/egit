@@ -12,6 +12,8 @@ static ERL_NIF_TERM ATOM_BADARG;
 static ERL_NIF_TERM ATOM_BARE;
 static ERL_NIF_TERM ATOM_BLOB;
 static ERL_NIF_TERM ATOM_BRANCH;
+static ERL_NIF_TERM ATOM_DETACHED;
+static ERL_NIF_TERM ATOM_UNBORN;
 static ERL_NIF_TERM ATOM_CHMOD_CALLS;
 static ERL_NIF_TERM ATOM_COMMIT;
 static ERL_NIF_TERM ATOM_COMMITS;
@@ -142,6 +144,8 @@ inline void init_atoms(ErlNifEnv* env)
   ATOM_BARE              = enif_make_atom(env, "bare");
   ATOM_BLOB              = enif_make_atom(env, "blob");
   ATOM_BRANCH            = enif_make_atom(env, "branch");
+  ATOM_DETACHED          = enif_make_atom(env, "detached");
+  ATOM_UNBORN            = enif_make_atom(env, "unborn");
   ATOM_CHMOD_CALLS       = enif_make_atom(env, "chmod_calls");
   ATOM_COMMIT            = enif_make_atom(env, "commit");
   ATOM_COMMITS           = enif_make_atom(env, "commits");
