@@ -1,8 +1,24 @@
 ![Banner](https://github.com/saleyn/egit/blob/main/assets/egit-banner.png?raw=true)
 
-[![build](https://github.com/saleyn/egit/actions/workflows/erlang.yml/badge.svg)](https://github.com/saleyn/egit/actions/workflows/erlang.yml)
-[![Hex.pm](https://img.shields.io/hexpm/v/egit.svg)](https://hex.pm/packages/egit)
-[![Hex.pm](https://img.shields.io/hexpm/dt/egit.svg)](https://hex.pm/packages/egit)
+[![build](https://github.com/V-Sekai-fire/egit/actions/workflows/build.yml/badge.svg)](https://github.com/V-Sekai-fire/egit/actions/workflows/build.yml)
+[![Erlang CI](https://github.com/V-Sekai-fire/egit/actions/workflows/erlang.yml/badge.svg)](https://github.com/V-Sekai-fire/egit/actions/workflows/erlang.yml)
+
+> **This is a fork of [saleyn/egit](https://github.com/saleyn/egit).** The
+> badges above are this fork's CI, not upstream's. Versions are
+> `0.2.1-vsekai.N.dev` to avoid confusion with upstream.
+>
+> What it adds:
+>
+> - **Builds on Windows**, through CMake and llvm-mingw, and through MSVC.
+> - **libgit2 is preferred from a system prefix and vendored static
+>   otherwise**, so a downloaded artefact needs nothing from the machine that
+>   built it. `priv/egit.sigs` records which was used.
+> - **Precompiled artefacts** for linux-x86_64, windows-x86_64 and both macOS
+>   architectures, each loaded by a host that can run it before it is
+>   published.
+>
+> Upstream is where general egit development happens. Changes here that are
+> not Windows- or packaging-specific belong there.
 
 `egit` project is an Erlang NIF wrapper to `libgit2` library. It allows to
 execute commands to access and manage a `git` repository without depending
@@ -11,7 +27,8 @@ text output produced by the `git` executable.
 
 Though it appears to be stable, the project is currently in the beta stage.
 
-Source code:   https://github.com/saleyn/egit
+Source code:   https://github.com/V-Sekai-fire/egit (fork)
+Upstream:      https://github.com/saleyn/egit
 
 Documentation: https://hexdocs.pm/egit
 
