@@ -20,7 +20,7 @@ ERL_NIF_TERM lg2_describe(ErlNifEnv* env, git_repository* repo, std::string cons
       if (enif_is_identical(tuple[0], ATOM_PATTERN)) {
         ErlNifBinary bin;
         if (enif_inspect_binary(env, tuple[1], &bin))
-          desc_opts.pattern = strndup((const char*)bin.data, bin.size);
+          desc_opts.pattern = egit_strndup((const char*)bin.data, bin.size);
       }
     }
   }

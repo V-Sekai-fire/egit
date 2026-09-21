@@ -44,11 +44,10 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             export CC=clang CXX=clang++
-            PREFIX_SUFFIX=/Library
+            SUFFIX=/Library
           fi
-          pixi run bash -c "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH=\$CONDA_PREFIX${PREFIX_SUFFIX}"
-          pixi run cmake --build build
+          export SUFFIX
+          pixi run bash -c 'CMAKE_PREFIX_PATH=$CONDA_PREFIX$SUFFIX cmake -P build.cmake'
 
       # The check. A build that produced an unloadable NIF passes every step
       # above it, so the artefact is loaded and asked a real question.
@@ -63,7 +62,7 @@ jobs:
           main() ->
             R = git:open("."),
             [_|_] = git:list_remotes(R),
-            <<_:40/binary>> = git:rev_parse(R, <<"HEAD">>),
+            {ok, <<_:40/binary>>} = git:rev_parse(R, <<"HEAD">>),
             io:format("ok~n"),
             halt(0).
           ERL
