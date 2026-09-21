@@ -53,9 +53,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          curl -sSL -o mingw.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-x86_64.zip
+          V=20260505
+          curl -fsSL -o mingw.zip "https://github.com/mstorsjo/llvm-mingw/releases/download/$V/llvm-mingw-$V-ucrt-x86_64.zip"
           7z x -y mingw.zip > /dev/null
-          echo "$PWD/llvm-mingw-20250910-ucrt-x86_64/bin" >> "$GITHUB_PATH"
+          echo "$PWD/llvm-mingw-$V-ucrt-x86_64/bin" >> "$GITHUB_PATH"
 
       - name: precompile
         shell: bash

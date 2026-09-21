@@ -58,7 +58,7 @@ if(EGIT_VENDOR_LIBGIT2)
   set(BUILD_CLI         OFF CACHE BOOL "" FORCE)
   set(BUILD_EXAMPLES    OFF CACHE BOOL "" FORCE)
   set(BUILD_FUZZERS     OFF CACHE BOOL "" FORCE)
-  set(USE_SSH           OFF CACHE STRING "" FORCE)
+  set(USE_SSH           "exec" CACHE STRING "" FORCE)
   set(USE_BUNDLED_ZLIB  ON  CACHE STRING "" FORCE)
   set(REGEX_BACKEND     "builtin" CACHE STRING "" FORCE)
 
@@ -122,8 +122,13 @@ if(MINGW)
 endif()
 
 if(APPLE)
-  # A NIF resolves enif_* out of the running emulator at load time.
-  target_link_options(git PRIVATE -flat_namespace -undefined suppress)
+  # enif_* are resolved out of the running emulator at load time, so they are
+  # undefined here and the link has to allow that. -undefined dynamic_lookup
+  # allows exactly those; the older -flat_namespace -undefined suppress allows
+  # every undefined symbol, which turns a missing library into a load failure
+  # with no symbol named - which is what it did when libgit2 became static and
+  # its frameworks were not yet linked.
+  target_link_options(git PRIVATE -undefined dynamic_lookup)
 endif()
 
 # Under Mix the library belongs in the built application's priv, not the source
