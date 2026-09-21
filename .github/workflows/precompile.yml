@@ -18,6 +18,12 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# Serialised per tag rather than cancelled: a half-uploaded release is
+# worse than a slow one, so a run already attaching artefacts finishes.
+concurrency:
+  group: precompile-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   precompile:
     strategy:

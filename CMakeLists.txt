@@ -33,25 +33,60 @@ erl_eval(ERTS_INCLUDE
 erl_eval(EI_INCLUDE "io:format(\"~ts\", [code:lib_dir(erl_interface, include)]), halt(0).")
 erl_eval(EI_LIB "io:format(\"~ts\", [code:lib_dir(erl_interface, lib)]), halt(0).")
 
-find_path(GIT2_INCLUDE_DIR git2.h)
+# LIBGIT2 IS VENDORED AND STATIC, because the artefact is downloaded rather
+# than built. A NIF linked against a packaged libgit2 carries a dependency on
+# a file that lives in the build desk's environment: it loads here and not on
+# the machine that unpacks the archive. Windows makes that worse rather than
+# better - the emulator loads the NIF by full path and Windows then looks for
+# its dependencies in the process's directories, not the NIF's, so shipping
+# git2.dll beside git.dll does not fix it either.
+#
+# So libgit2 is built here, static, with its own zlib and its own regex. What
+# is left dynamic is the operating system's own TLS - WinHTTP, SecureTransport,
+# OpenSSL - which is present by definition on the machine that needs it.
+#
+# -DEGIT_VENDOR_LIBGIT2=OFF takes a packaged libgit2 instead, for a desk that
+# would rather not compile one.
 
-# On Windows the packaged libgit2 is built with MSVC, and its import library
-# carries /DEFAULTLIB:LIBCMT and /DEFAULTLIB:OLDNAMES directives that lld in
-# MinGW mode cannot satisfy - it looks for libLIBCMT.a and libOLDNAMES.a and
-# stops. libgit2 is a C library, so linking the DLL itself skips the
-# directives and keeps the ABI, which is the same thing the import library
-# would have given us.
-if(MINGW)
-  find_file(GIT2_LIBRARY NAMES git2.dll libgit2.dll PATH_SUFFIXES bin)
-endif()
-if(NOT GIT2_LIBRARY)
-  find_library(GIT2_LIBRARY NAMES git2 libgit2)
-endif()
+option(EGIT_VENDOR_LIBGIT2 "Build libgit2 from source and link it statically" ON)
+set(EGIT_LIBGIT2_TAG "v1.9.7" CACHE STRING "libgit2 tag to vendor")
 
-if(NOT GIT2_INCLUDE_DIR OR NOT GIT2_LIBRARY)
-  message(FATAL_ERROR "libgit2 not found; set CMAKE_PREFIX_PATH at it")
+if(EGIT_VENDOR_LIBGIT2)
+  include(FetchContent)
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  set(BUILD_TESTS       OFF CACHE BOOL "" FORCE)
+  set(BUILD_CLI         OFF CACHE BOOL "" FORCE)
+  set(BUILD_EXAMPLES    OFF CACHE BOOL "" FORCE)
+  set(BUILD_FUZZERS     OFF CACHE BOOL "" FORCE)
+  set(USE_SSH           OFF CACHE STRING "" FORCE)
+  set(USE_BUNDLED_ZLIB  ON  CACHE STRING "" FORCE)
+  set(REGEX_BACKEND     "builtin" CACHE STRING "" FORCE)
+
+  FetchContent_Declare(libgit2
+    GIT_REPOSITORY https://github.com/libgit2/libgit2.git
+    GIT_TAG        ${EGIT_LIBGIT2_TAG}
+    GIT_SHALLOW    TRUE)
+  FetchContent_MakeAvailable(libgit2)
+
+  set(GIT2_LIBRARY libgit2package)
+  set(GIT2_INCLUDE_DIR "${libgit2_SOURCE_DIR}/include")
+  message(STATUS "libgit2: vendored ${EGIT_LIBGIT2_TAG}, static")
+else()
+  find_path(GIT2_INCLUDE_DIR git2.h)
+  if(MINGW)
+    # A packaged libgit2 on Windows is built with MSVC, and its import library
+    # carries /DEFAULTLIB:LIBCMT and /DEFAULTLIB:OLDNAMES directives that lld
+    # in MinGW mode cannot satisfy. Linking the DLL skips the directives.
+    find_file(GIT2_LIBRARY NAMES git2.dll libgit2.dll PATH_SUFFIXES bin)
+  endif()
+  if(NOT GIT2_LIBRARY)
+    find_library(GIT2_LIBRARY NAMES git2 libgit2)
+  endif()
+  if(NOT GIT2_INCLUDE_DIR OR NOT GIT2_LIBRARY)
+    message(FATAL_ERROR "libgit2 not found; set CMAKE_PREFIX_PATH at it")
+  endif()
+  message(STATUS "libgit2: packaged ${GIT2_LIBRARY}")
 endif()
-message(STATUS "libgit2: ${GIT2_LIBRARY}")
 
 file(GLOB EGIT_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/c_src/*.cpp")
 add_library(git MODULE ${EGIT_SOURCES})
