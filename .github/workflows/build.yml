@@ -15,6 +15,13 @@ on:
     branches: [main]
   pull_request:
 
+# A push to a branch with a pull request open supersedes the run already
+# going for it, and the older one is then reporting on a commit nobody is
+# looking at while holding a runner.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
@@ -40,19 +47,27 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          curl -sSL -o mingw.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-x86_64.zip
+          # --fail, because curl without it writes the 404 body to the file and
+          # exits 0: the download "succeeded" and 7z then reported the zip as
+          # corrupt, which reads as a bad archive rather than a wrong URL.
+          V=20260505
+          curl -fsSL -o mingw.zip "https://github.com/mstorsjo/llvm-mingw/releases/download/$V/llvm-mingw-$V-ucrt-x86_64.zip"
           7z x -y mingw.zip > /dev/null
-          echo "$PWD/llvm-mingw-20250910-ucrt-x86_64/bin" >> "$GITHUB_PATH"
+          echo "$PWD/llvm-mingw-$V-ucrt-x86_64/bin" >> "$GITHUB_PATH"
 
       - name: configure and build
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             export CC=clang CXX=clang++
-            SUFFIX=/Library
           fi
-          export SUFFIX
-          pixi run bash -c 'CMAKE_PREFIX_PATH=$CONDA_PREFIX$SUFFIX cmake -P build.cmake'
+          # No CMAKE_PREFIX_PATH. It existed to find the packaged libgit2, and
+          # libgit2 is vendored now; leaving it pointed at the pixi environment
+          # made libgit2's own configure link that environment's libiconv and
+          # libc++ as @rpath entries with no rpath to resolve them, so the NIF
+          # built and then would not load. pixi supplies cmake and ninja here,
+          # not libraries.
+          pixi run cmake -P build.cmake
 
       # The check. A build that produced an unloadable NIF passes every step
       # above it, so the artefact is loaded and asked a real question.
@@ -72,4 +87,12 @@ jobs:
             halt(0).
           ERL
           erlc -o ebin load_test.erl
-          pixi run bash -c 'erl -noshell -pa ebin -s load_test main'
+          # load_nif's reason is what says why, and on_load swallows it: the
+          # caller only sees undef on the first call, which names no symbol and
+          # no library. So the reason is asked for directly when the load fails.
+          if ! pixi run bash -c 'erl -noshell -pa ebin -s load_test main'; then
+            echo "--- linkage"
+            ls -l priv/ || true
+            (otool -L priv/git.so 2>/dev/null || ldd priv/git.so 2>/dev/null) || true
+            exit 1
+          fi

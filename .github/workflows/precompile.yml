@@ -18,6 +18,12 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# Serialised per tag rather than cancelled: a half-uploaded release is
+# worse than a slow one, so a run already attaching artefacts finishes.
+concurrency:
+  group: precompile-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   precompile:
     strategy:
@@ -47,22 +53,27 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          curl -sSL -o mingw.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-x86_64.zip
+          V=20260505
+          curl -fsSL -o mingw.zip "https://github.com/mstorsjo/llvm-mingw/releases/download/$V/llvm-mingw-$V-ucrt-x86_64.zip"
           7z x -y mingw.zip > /dev/null
-          echo "$PWD/llvm-mingw-20250910-ucrt-x86_64/bin" >> "$GITHUB_PATH"
+          echo "$PWD/llvm-mingw-$V-ucrt-x86_64/bin" >> "$GITHUB_PATH"
 
       - name: precompile
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             export CC=clang CXX=clang++
-            SUFFIX=/Library
           fi
-          export SUFFIX
+          # No CMAKE_PREFIX_PATH. It existed to find the packaged libgit2, and
+          # libgit2 is vendored now; leaving it pointed at the pixi environment
+          # made libgit2's own configure link that environment's libiconv and
+          # libc++ as @rpath entries with no rpath to resolve them, so the NIF
+          # built and then would not load. pixi supplies cmake and ninja here,
+          # not libraries.
           export ELIXIR_MAKE_CACHE_DIR="$PWD/cache"
           mkdir -p "$ELIXIR_MAKE_CACHE_DIR"
           mix deps.get
-          pixi run bash -c 'CMAKE_PREFIX_PATH=$CONDA_PREFIX$SUFFIX mix elixir_make.precompile'
+          pixi run mix elixir_make.precompile
 
       # An archive that unpacks to a NIF the emulator cannot load is still an
       # archive, and the release would carry it. So it is unpacked and loaded
