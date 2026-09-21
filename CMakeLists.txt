@@ -45,6 +45,12 @@ erl_eval(EI_LIB "io:format(\"~ts\", [code:lib_dir(erl_interface, lib)]), halt(0)
 # is left dynamic is the operating system's own TLS - WinHTTP, SecureTransport,
 # OpenSSL - which is present by definition on the machine that needs it.
 #
+# SSH is the exec provider rather than libssh2, which would be a second library
+# to vendor. exec drives the ssh already on the machine, so an SSH remote works
+# where ssh exists and fails there alone where it does not, instead of the
+# library shipping without the capability at all. Measured on Windows: 11 KB
+# larger than USE_SSH=OFF, and no new import.
+#
 # -DEGIT_VENDOR_LIBGIT2=OFF takes a packaged libgit2 instead, for a desk that
 # would rather not compile one.
 
