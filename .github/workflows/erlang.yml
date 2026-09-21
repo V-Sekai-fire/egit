@@ -30,9 +30,9 @@ jobs:
         g++ --version
         git config --global user.name "Test User"
         git config --global user.email "test@gmail.com"
-    - name: Install cmake and libgit2
+    - name: Install cmake
       run: |
-        apt-get update -y && apt-get install -y cmake ninja-build libgit2-dev
+        apt-get update -y && apt-get install -y cmake ninja-build
     - name: Compile
       run:  make
     - name: Dialyze
