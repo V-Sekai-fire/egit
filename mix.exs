@@ -15,6 +15,14 @@
 #   mix elixir_make.precompile                 # build the artefact for this target
 #   mix elixir_make.checksum --all             # after the release, write checksum.exs
 #
+# THE VERSION CARRIES THE FORK. Upstream tags v0.2.1 and so would this, which
+# would put two different builds behind one name in tags, release titles and
+# every artefact filename. `0.2.1-vsekai.1` says which is which everywhere it
+# appears: egit 0.2.1 plus the patches here. The cost is that semver sorts a
+# prerelease below the release it names, so this reads as older than upstream
+# 0.2.1 to a range resolver; nothing resolves a range across both forks, and a
+# name that cannot be confused is worth more than an ordering nobody consults.
+#
 # checksum.exs is generated from the published artefacts and goes into the Hex
 # package, where it is mandatory - a consumer verifies each download against
 # it. It is not tracked in git, because it describes a release that exists
@@ -23,7 +31,7 @@
 defmodule Egit.MixProject do
   use Mix.Project
 
-  @version "0.2.1"
+  @version "0.2.1-vsekai.1"
   @source_url "https://github.com/V-Sekai-fire/egit"
 
   def project do
