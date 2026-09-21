@@ -15,8 +15,10 @@
 #   mix elixir_make.precompile                 # build the artefact for this target
 #   mix elixir_make.checksum --all             # after the release, write checksum.exs
 #
-# checksum.exs is committed, because a consumer verifies the download against
-# it and a package without it does not work.
+# checksum.exs is generated from the published artefacts and goes into the Hex
+# package, where it is mandatory - a consumer verifies each download against
+# it. It is not tracked in git, because it describes a release that exists
+# rather than a source tree.
 
 defmodule Egit.MixProject do
   use Mix.Project
