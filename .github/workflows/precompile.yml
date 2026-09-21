@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Builds the NIF once per platform on a tag and attaches the archives to the
+# release, so that nothing downstream compiles C++ to read a HEAD. A desk or a
+# CI job then downloads the archive matching its NIF version and target triple.
+#
+# After the release exists, the checksums are written and committed:
+#
+#   MIX_ENV=prod mix elixir_make.checksum --all --ignore-unavailable
+#
+# checksum.exs is what a consumer verifies the download against, so a package
+# without it does not work. It is committed rather than generated on the fly.
+
+name: precompile
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  precompile:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-13        # x86_64
+          - os: macos-latest    # arm64
+          - os: windows-latest
+    runs-on: ${{ matrix.os }}
+    env:
+      MIX_ENV: prod
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '27'
+          elixir-version: '1.17'
+
+      - uses: prefix-dev/setup-pixi@v0
+        with:
+          pixi-version: v0.81.0
+
+      - name: llvm-mingw
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          curl -sSL -o mingw.zip https://github.com/mstorsjo/llvm-mingw/releases/download/20250910/llvm-mingw-20250910-ucrt-x86_64.zip
+          7z x -y mingw.zip > /dev/null
+          echo "$PWD/llvm-mingw-20250910-ucrt-x86_64/bin" >> "$GITHUB_PATH"
+
+      - name: precompile
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            export CC=clang CXX=clang++
+            SUFFIX=/Library
+          fi
+          export SUFFIX
+          export ELIXIR_MAKE_CACHE_DIR="$PWD/cache"
+          mkdir -p "$ELIXIR_MAKE_CACHE_DIR"
+          mix deps.get
+          pixi run bash -c 'CMAKE_PREFIX_PATH=$CONDA_PREFIX$SUFFIX mix elixir_make.precompile'
+
+      # An archive that unpacks to a NIF the emulator cannot load is still an
+      # archive, and the release would carry it. So it is unpacked and loaded
+      # before it is uploaded.
+      - name: load what was archived
+        shell: bash
+        run: |
+          mkdir -p verify/priv ebin
+          tar -xzf cache/*.tar.gz -C verify/priv
+          erlc -o ebin src/*.erl
+          cat > load_test.erl <<'ERL'
+          -module(load_test).
+          -export([main/0]).
+          main() ->
+            R = git:open("."),
+            [_|_] = git:list_remotes(R),
+            {ok, <<_:40/binary>>} = git:rev_parse(R, <<"HEAD">>),
+            io:format("ok~n"),
+            halt(0).
+          ERL
+          erlc -o ebin load_test.erl
+          rm -rf priv && mv verify/priv priv
+          pixi run bash -c 'erl -noshell -pa ebin -s load_test main'
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: cache/*.tar.gz

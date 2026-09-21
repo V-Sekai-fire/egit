@@ -42,6 +42,7 @@ git:reflog(Repo, "main")
 -export([init/1, init/2, clone/2, open/1, fetch/1, fetch/2,
          pull/1, pull/2, push/1, push/2, push/3, commit_lookup/3]).
 -export([cat_file/2, cat_file/3, checkout/2, checkout/3]).
+-export([head/1]).
 -export([add_all/1, add/2, add/3, commit/2,
          rev_parse/2, rev_parse/3, rev_list/3]).
 -export([config_get/2, config_set/3]).
@@ -392,6 +393,9 @@ Examples:
 """.
 -spec rev_parse(repository(), binary()|string(), rev_parse_opts()) ->
         {ok, binary()} | map() | {error, binary()|atom()}.
+head(Repo) ->
+  head_nif(Repo).
+
 rev_parse(Repo, Spec, Opts) ->
   rev_parse_nif(Repo, to_bin(Spec), Opts).
 
@@ -901,6 +905,9 @@ commit_nif(Repo, Comment) when is_reference(Repo), is_binary(Comment) ->
   ?NOT_LOADED_ERROR.
 
 commit_lookup_nif(Repo, OID, Opts) when is_reference(Repo), is_binary(OID), is_list(Opts) ->
+  ?NOT_LOADED_ERROR.
+
+head_nif(Repo) when is_reference(Repo) ->
   ?NOT_LOADED_ERROR.
 
 rev_parse_nif(Repo, Spec, Opts) when is_reference(Repo), is_binary(Spec), is_list(Opts) ->
