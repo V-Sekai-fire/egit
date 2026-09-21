@@ -3,7 +3,7 @@
 defmodule Egit.MixProject do
   use Mix.Project
 
-  @version "0.2.1-vsekai.3.dev"
+  @version "0.2.1-vsekai.4"
   @source_url "https://github.com/V-Sekai-fire/egit"
 
   def project do
@@ -25,7 +25,7 @@ defmodule Egit.MixProject do
         "#{@source_url}/releases/download/v#{@version}/@{artefact_filename}",
       make_precompiler_filename: "git",
       make_precompiler_priv_paths: ["git.*", "egit.sigs"],
-      make_precompiler_nif_versions: [versions: ["2.17"]],
+      make_precompiler_nif_versions: [versions: ["2.16", "2.17", "2.18"]],
 
       # cc_precompiler picks the compiler itself and ignores CC/CXX.
       cc_precompiler: [
