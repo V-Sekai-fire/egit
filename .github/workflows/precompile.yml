@@ -150,10 +150,12 @@ jobs:
         with:
           files: cache/*.tar.gz
 
-  # Does a desk with no toolchain get a working NIF from the release? Every job
-  # above builds one, which says nothing about whether a consumer can avoid
-  # building. This installs from the release that was just published, on a
-  # runner with no cmake, no llvm-mingw and no pixi, and calls into it.
+  # Does a consumer get the artefact, or quietly build one? A runner has cmake
+  # and a compiler on it, so the absence of a toolchain cannot be asserted here
+  # -- the first version of this job tried, and refused to run rather than
+  # pretend. What can be asserted is which path elixir_make took: it prints
+  # "Downloading precompiled NIF" when it fetches, and runs the build when it
+  # does not.
   consume:
     needs: precompile
     if: startsWith(github.ref, 'refs/tags/')
@@ -174,19 +176,12 @@ jobs:
           otp-version: ${{ matrix.otp }}
           elixir-version: ${{ matrix.elixir }}
 
-      - name: no toolchain is present
-        shell: bash
-        run: |
-          for t in cmake ninja clang++ g++; do
-            command -v $t >/dev/null && { echo "FAIL: $t is on PATH; this job proves nothing"; exit 1; }
-          done
-          echo "no cmake, ninja, clang++ or g++ on PATH"
-
       - name: install from the release and call into it
         shell: bash
         run: |
           mkdir -p consume && cd consume
-          git init -q . && git commit -q --allow-empty -m probe             --author="t <t@t>" 2>/dev/null || true
+          git init -q .
+          git -c user.email=t@t -c user.name=t commit -q --allow-empty -m probe
           cat > use.exs <<'EX'
           Mix.install([{:egit, git: "https://github.com/V-Sekai-fire/egit.git",
                         tag: System.get_env("TAG")}])
@@ -197,14 +192,16 @@ jobs:
             {:detached, _} -> :ok
             other -> raise "head/1 gave #{inspect(other)}"
           end
-          IO.puts("installed without compiling, and the NIF answers")
+          IO.puts("the NIF answers")
           EX
-          TAG="${GITHUB_REF_NAME}" elixir use.exs
+          TAG="${GITHUB_REF_NAME}" elixir use.exs 2>&1 | tee out.txt
+          grep -q "the NIF answers" out.txt || { echo "FAIL: the NIF did not answer"; exit 1; }
+          grep -q "Downloading precompiled NIF" out.txt             || { echo "FAIL: no artefact was downloaded; it built one instead"; exit 1; }
+          echo "ok: downloaded the artefact and called into it"
 
-  # The control. The job above passes if the artefact downloads, and it would
-  # also pass if elixir_make quietly compiled one instead -- which is the only
-  # way it can fail to prove anything. So the same install is run with the
-  # build forced, on the same toolchain-free runner, and is required to FAIL.
+  # The control. consume passes when it sees "Downloading precompiled NIF", and
+  # that is only evidence if the same install without a download does not print
+  # it. So the build is forced here and the marker is required to be ABSENT.
   consume-control:
     needs: precompile
     if: startsWith(github.ref, 'refs/tags/')
@@ -215,7 +212,7 @@ jobs:
           otp-version: '27'
           elixir-version: '1.17'
 
-      - name: a forced build must fail where no toolchain exists
+      - name: a forced build must not look like a download
         shell: bash
         run: |
           mkdir -p control && cd control
@@ -223,11 +220,12 @@ jobs:
           Application.put_env(:elixir_make, :force_build, egit: true)
           Mix.install([{:egit, git: "https://github.com/V-Sekai-fire/egit.git",
                         tag: System.get_env("TAG")}])
+          IO.puts("forced build finished")
           EX
-          if TAG="${GITHUB_REF_NAME}" elixir forced.exs 2>err.txt; then
-            echo "CONTROL DID NOT FIRE: a forced build succeeded with no toolchain,"
-            echo "so the consume job cannot distinguish a download from a build."
+          TAG="${GITHUB_REF_NAME}" elixir forced.exs 2>&1 | tee out.txt || true
+          if grep -q "Downloading precompiled NIF" out.txt; then
+            echo "CONTROL DID NOT FIRE: a forced build printed the download marker,"
+            echo "so consume cannot tell a download from a build."
             exit 1
           fi
-          grep -qiE 'cmake|make|not found' err.txt             || { echo "failed for an unexpected reason:"; cat err.txt; exit 1; }
-          echo "ok: forced build fails without a toolchain, so consume proves a download"
+          echo "ok: a forced build does not print it, so the marker means a download"
