@@ -5,20 +5,11 @@
 
 > **This is a fork of [saleyn/egit](https://github.com/saleyn/egit).** The
 > badges above are this fork's CI, not upstream's. Versions are
-> `0.2.1-vsekai.N.dev` so they cannot be confused with upstream's `0.2.1` in a
-> tag, a release title, or an artefact filename.
+> `0.2.1-vsekai.N.dev` to avoid confusion with upstream.
 >
 > What it adds:
 >
 > - **Builds on Windows**, through CMake and llvm-mingw, and through MSVC.
-> - **`head/1`** - whether a checkout is on a branch or detached. `rev_parse`
->   says what commit HEAD is and `list_branches` says what branches exist;
->   neither answered this.
-> - **Merge parents are recorded** by `commit/2`, which previously wrote a
->   single-parent commit even with MERGE_HEAD present.
-> - **A rebase segfault fixed**: `rebase_next/1` read from `operation->exec`,
->   which libgit2 leaves NULL for the PICK operations a branch rebase produces.
->   In a NIF that takes the emulator down rather than returning an error.
 > - **libgit2 is preferred from a system prefix and vendored static
 >   otherwise**, so a downloaded artefact needs nothing from the machine that
 >   built it. `priv/egit.sigs` records which was used.
