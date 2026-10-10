@@ -24,6 +24,9 @@ concurrency:
   group: precompile-${{ github.ref }}
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
   precompile:
     strategy:
